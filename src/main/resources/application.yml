@@ -1,0 +1,11 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update
+  datasource:
+    url: jdbc:mysql://localhost:3306/springboot
+    username: root
+    password: Innovaciones2014.
+server:
+  servlet:
+    contextPath: /springboot-demo
