@@ -1,30 +1,38 @@
-package org.demo.springboot.rest;
+package org.demo.springboot.repository;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.demo.springboot.entity.Customer;
-import org.demo.springboot.repository.CustomerRepository;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.json.JacksonTester;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.context.web.WebAppConfiguration;
+import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.http.MediaType.APPLICATION_JSON_UTF8;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public class CustomerControllerTest {
+@AutoConfigureMockMvc
+public class CustomerRepositoryHyperMediaTest {
 
     @LocalServerPort
     private int port;
@@ -37,11 +45,16 @@ public class CustomerControllerTest {
     @Autowired
     protected ObjectMapper objectMapper;
 
+    @Autowired
+    private MockMvc mockMvc;
+
+    private JacksonTester<Customer> jsonTester;
+
     private String createURLWithPort(String uri) {
-        return "http://localhost:" + port + uri;
+        return "http://localhost:" + port + "/springboot-demo" + uri;
     }
 
-    @Test
+//    @Test
     public void getAllCustomersTest() throws Exception {
         List<Customer> customerList = new ArrayList<>();
         customerList.add(new Customer("Jack", "Bauer"));
@@ -61,20 +74,14 @@ public class CustomerControllerTest {
     }
 
     @Test
-    public void addNewCustomerTest() {
-        restTemplate = new TestRestTemplate();
-        List<Customer> customerList = new ArrayList<>();
-        customerList.add(new Customer("Martin", "Mena"));
+    public void addNewCustomerTest() throws Exception {
+        JacksonTester.initFields(this, objectMapper);
+        final String customerJson = jsonTester.write(new Customer()).getJson();
+        mockMvc.perform(post(createURLWithPort("/customers"))
+                .content(customerJson)
+                .contentType(APPLICATION_JSON_UTF8))
+                .andExpect(status().isCreated());
+        Mockito.verify(customerRepository).save(ArgumentMatchers.any(Customer.class));
 
-        Mockito.when(customerRepository.save(customerList.get(0))).thenReturn(customerList.get(0));
-        ResponseEntity<String> response = restTemplate.getForEntity( createURLWithPort("/customers/add?firstName=Martin&lastName=Mena"), String.class);
-        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isEqualTo("Saved");
-
-        Mockito.when(customerRepository.findAll()).thenReturn(customerList);
-        List<Customer> customers = (List<Customer>) customerRepository.findAll();
-        assertThat(customers.size()).isEqualTo(1);
-        assertThat(customers.get(0).getFirstName()).isEqualTo("Martin");
     }
 }
